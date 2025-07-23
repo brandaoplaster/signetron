@@ -1,0 +1,27 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  rubocop:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.5'
+          bundler-cache: true
+      - name: Run RuboCop
+        run: bundle exec rubocop -f github
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: rubocop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.5'
+          bundler-cache: true
+      - name: Run tests
+        run: bundle exec rake
