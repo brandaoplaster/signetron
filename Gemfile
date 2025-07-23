@@ -12,4 +12,5 @@ group :development do
   gem "rubocop", "~> 1.21"
   gem "rubocop-performance", "~> 1.19"
   gem "rubocop-rspec", "~> 2.20"
+  gem "simplecov", "~> 0.22"
 end
