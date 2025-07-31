@@ -16,6 +16,35 @@ If bundler is not being used to manage dependencies, install the gem by executin
 
     $ gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
 
+
+## Project Structure
+
+```text
+lib/signetron/
+├── client/                    # API communication
+│   ├── base.rb
+│   ├── envelope_client.rb
+│   └── error_handler.rb
+├── models/                    # Data representation
+│   ├── base.rb
+│   ├── envelope.rb
+│   └── signer.rb
+├── schemas/                   # Data structure and types
+│   ├── envelope_schema.rb
+│   └── signer_schema.rb
+├── validators/                # Business rules
+│   ├── envelope_validator.rb
+│   └── business_rules/
+│       ├── deadline_rules.rb
+│       └── locale_rules.rb
+├── services/                  # Orchestration logic
+│   ├── envelope_service.rb
+│   └── data_transformer.rb
+├── serializers/               # Data transformation for API
+│   └── json_api_serializer.rb
+└── configuration.rb           # Main configuration
+```
+
 ## Usage
 
 TODO: Write usage instructions here
