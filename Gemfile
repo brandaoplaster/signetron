@@ -10,6 +10,7 @@ gem "rake", "~> 13.0"
 gem "rest-client"
 
 group :development, :test do
+  gem "reek", "~> 6.1"
   gem "rspec"
   gem "rubocop", "~> 1.21"
   gem "rubocop-performance", "~> 1.19"

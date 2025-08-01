@@ -1,0 +1,226 @@
+# .reek.yml - Configuração base para análise de code smells
+# Documentação: https://github.com/troessner/reek/tree/master/docs
+
+# Diretórios e arquivos para excluir da análise
+exclude_paths:
+  - spec/
+  - test/
+  - vendor/
+  - tmp/
+  - log/
+  - db/migrate/
+  - config/
+  - bin/
+  - "*.gemspec"
+
+# Configuração dos detectores
+detectors:
+  
+  # Attribute - Detecta atributos públicos writáveis
+  Attribute:
+    enabled: true
+    exclude: []
+  
+  # BooleanParameter - Detecta parâmetros booleanos
+  BooleanParameter:
+    enabled: true
+    exclude: []
+  
+  # ClassVariable - Detecta uso de variáveis de classe
+  ClassVariable:
+    enabled: true
+    exclude: []
+  
+  # ControlParameter - Detecta parâmetros que controlam fluxo
+  ControlParameter:
+    enabled: true
+    exclude: []
+  
+  # DataClump - Detecta grupos de dados que andam juntos
+  DataClump:
+    enabled: true
+    max_copies: 2
+    min_clump_size: 3
+    exclude: []
+  
+  # DuplicateMethodCall - Detecta chamadas duplicadas de métodos
+  DuplicateMethodCall:
+    enabled: true
+    max_calls: 2  # máximo de 2 chamadas iguais permitidas
+    allow_calls: []
+    exclude: []
+  
+  # FeatureEnvy - Detecta métodos que usam muito outras classes
+  FeatureEnvy:
+    enabled: true
+    exclude: []
+  
+  # InstanceVariableAssumption - Detecta assumpções sobre variáveis de instância
+  InstanceVariableAssumption:
+    enabled: false  # muito restritivo para gems
+  
+  # IrresponsibleModule - Detecta classes/módulos sem documentação
+  IrresponsibleModule:
+    enabled: false  # opcional - habilite se quiser forçar documentação
+  
+  # LongParameterList - Detecta listas longas de parâmetros
+  LongParameterList:
+    enabled: true
+    max_params: 4  # máximo 4 parâmetros
+    exclude: []
+  
+  # LongYieldList - Detecta yields com muitos parâmetros
+  LongYieldList:
+    enabled: true
+    max_params: 3
+    exclude: []
+  
+  # ManualDispatch - Detecta dispatch manual (case/if com types)
+  ManualDispatch:
+    enabled: true
+    exclude: []
+  
+  # MissingSafeMethod - Detecta métodos bang sem versão safe
+  MissingSafeMethod:
+    enabled: false  # pode ser muito restritivo
+  
+  # ModuleInitialize - Detecta método initialize em módulos
+  ModuleInitialize:
+    enabled: true
+    exclude: []
+  
+  # NestedIterators - Detecta iteradores aninhados
+  NestedIterators:
+    enabled: true
+    max_allowed_nesting: 2
+    ignore_iterators:
+      - tap
+      - with_object
+      - with_index
+    exclude: []
+  
+  # NilCheck - Detecta verificações explícitas de nil
+  NilCheck:
+    enabled: true
+    exclude: []
+  
+  # RepeatedConditional - Detecta condicionais repetidas
+  RepeatedConditional:
+    enabled: true
+    max_ifs: 3
+    exclude: []
+  
+  # SubclassedFromCoreClass - Detecta herança de classes core
+  SubclassedFromCoreClass:
+    enabled: true
+    exclude: []
+  
+  # TooManyConstants - Detecta muitas constantes
+  TooManyConstants:
+    enabled: true
+    max_constants: 8
+    exclude: []
+  
+  # TooManyInstanceVariables - Detecta muitas variáveis de instância
+  TooManyInstanceVariables:
+    enabled: true
+    max_instance_variables: 6
+    exclude: []
+  
+  # TooManyMethods - Detecta muitos métodos públicos
+  TooManyMethods:
+    enabled: true
+    max_methods: 15
+    exclude: []
+  
+  # TooManyStatements - Detecta métodos muito longos
+  TooManyStatements:
+    enabled: true
+    max_statements: 8
+    exclude:
+      - initialize  # constructors podem ser mais longos
+  
+  # UncommunicativeMethodName - Detecta nomes de métodos ruins
+  UncommunicativeMethodName:
+    enabled: true
+    accept:
+      - /^[a-z]$/           # métodos de uma letra (como x, y)
+      - /^[a-z][a-z0-9_]*$/ # padrão snake_case normal
+      # Aceitar padrões específicos comuns em gems
+      - /^to_/              # to_s, to_h, to_json, etc.
+      - /^from_/            # from_json, from_hash, etc.
+      - /^is_/              # is_valid?, is_active?, etc.
+      - /^has_/             # has_errors?, has_content?, etc.
+      # Aceitar alguns padrões de API externos
+      - /^content_base64$/  # específico para APIs que usam base64
+    reject:
+      - /^[A-Z]/            # rejeitar CamelCase
+      - /get/               # evitar prefixos get
+      - /set/               # evitar prefixos set
+    exclude: []
+  
+  # UncommunicativeModuleName - Detecta nomes de módulos ruins
+  UncommunicativeModuleName:
+    enabled: true
+    accept:
+      - /^[A-Z][A-Za-z0-9]*$/  # PascalCase padrão
+    reject: []
+    exclude: []
+  
+  # UncommunicativeParameterName - Detecta nomes de parâmetros ruins
+  UncommunicativeParameterName:
+    enabled: true
+    accept:
+      - /^_$/               # parâmetros não usados
+      - /^[a-z][a-z0-9_]*$/ # snake_case normal
+    reject:
+      - /^.$/               # evitar parâmetros de uma letra (exceto _)
+      - /^[A-Z]/            # evitar CamelCase
+    exclude: []
+  
+  # UncommunicativeVariableName - Detecta nomes de variáveis ruins
+  UncommunicativeVariableName:
+    enabled: true
+    accept:
+      - /^_$/               # variáveis não usadas
+      - /^[a-z][a-z0-9_]*$/ # snake_case normal
+      # Aceitar algumas convenções comuns
+      - /^i$/               # índices
+      - /^j$/               # índices aninhados
+      - /^k$/               # índices mais aninhados
+      - /^id$/              # IDs
+      - /^url$/             # URLs
+      - /^uri$/             # URIs
+      - /^xml$/             # XML
+      - /^json$/            # JSON
+      - /^csv$/             # CSV
+      - /^pdf$/             # PDF
+    reject:
+      - /^.$/               # evitar variáveis de uma letra (com exceções)
+      - /^[A-Z]/            # evitar CamelCase
+    exclude: []
+  
+  # UnusedParameters - Detecta parâmetros não utilizados
+  UnusedParameters:
+    enabled: true
+    exclude: []
+  
+  # UnusedPrivateMethod - Detecta métodos privados não utilizados
+  UnusedPrivateMethod:
+    enabled: true
+    exclude: []
+  
+  # UtilityFunction - Detecta funções que não usam estado da instância
+  UtilityFunction:
+    enabled: true
+    public_methods_only: true  # só detectar em métodos públicos
+    exclude: []
+
+# === CONFIGURAÇÕES OPCIONAIS ===
+
+# Configurações de saída
+# cli_options:
+#   --format: json        # formato de saída (text, json, yaml, html)
+#   --single-line: false  # uma linha por smell
+#   --no-color: false     # desabilitar cores
+#   --force-exclusion: false

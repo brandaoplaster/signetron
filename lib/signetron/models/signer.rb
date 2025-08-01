@@ -2,83 +2,123 @@
 
 module Signetron
   module Models
+    ##
+    # Signer model for document signing participants
+    #
+    # Represents a person who will sign documents in an envelope.
+    # Contains only essential attributes and methods based on API requirements.
+    #
+    # Example:
+    #   signer = Signer.new(
+    #     name: "John Doe",
+    #     email: "john@example.com",
+    #     phone_number: "+1234567890",
+    #     has_documentation: true,
+    #     documentation: "123.456.789-00",
+    #     birthday: "1990-05-15"
+    #   )
+    #
     class Signer < Base
-      def email
-        @attributes[:email]
-      end
-
+      ##
+      # Returns the signer's full name
+      #
+      # Returns:: String with complete name of the signer
+      #
       def name
         @attributes[:name]
       end
 
+      ##
+      # Returns the signer's email address
+      #
+      # Returns:: String with email address or nil
+      #
+      def email
+        @attributes[:email]
+      end
+
+      ##
+      # Returns the signer's phone number
+      #
+      # Returns:: String with phone number or nil
+      #
       def phone_number
         @attributes[:phone_number]
       end
 
+      ##
+      # Returns whether signer documentation is required
+      #
+      # Returns:: Boolean indicating if documentation is required
+      #
+      def documentation_required?
+        @attributes[:has_documentation]
+      end
+
+      ##
+      # Returns the signer's CPF documentation
+      #
+      # Returns:: String with CPF number or nil
+      #
       def documentation
         @attributes[:documentation]
       end
 
+      ##
+      # Returns the signer's birthday
+      #
+      # Returns:: Date or String with birth date or nil
+      #
       def birthday
         @attributes[:birthday]
       end
 
-      def auths
-        @attributes[:auths] || []
+      ##
+      # Returns whether signer can refuse the document
+      #
+      # Returns:: Boolean indicating if signer can refuse
+      #
+      def refusable
+        @attributes[:refusable]
       end
 
-      def has_documentation
-        @attributes[:has_documentation]
+      ##
+      # Returns the signer's group number for signing order
+      #
+      # Returns:: Integer with group number
+      #
+      def group
+        @attributes[:group]
       end
 
-      def selfie_enabled
-        @attributes[:selfie_enabled]
+      ##
+      # Returns whether location sharing is required
+      #
+      # Returns:: Boolean indicating if location is required
+      #
+      def location_required_enabled
+        @attributes[:location_required_enabled]
       end
 
-      def handwritten_enabled
-        @attributes[:handwritten_enabled]
+      ##
+      # Returns communication events configuration
+      #
+      # Returns:: CommunicateEvents instance or nil
+      #
+      def communicate_events
+        return nil unless @attributes[:communicate_events]
+
+        @communicate_events ||= CommunicateEvents.new(@attributes[:communicate_events])
       end
 
-      def official_document_enabled
-        @attributes[:official_document_enabled]
-      end
-
-      def liveness_enabled
-        @attributes[:liveness_enabled]
-      end
-
-      def facial_biometrics_enabled
-        @attributes[:facial_biometrics_enabled]
-      end
-
-      def full_name
-        name
-      end
-
-      def first_name
-        name.split.first if name
-      end
-
-      def last_name
-        name.split[1..-1].join(" ") if name && name.split.length > 1
-      end
-
-      def has_phone?
-        !phone_number.nil? && !phone_number.strip.empty?
-      end
-
-      def has_documentation?
-        has_documentation == true
-      end
-
-      def email_auth_enabled?
-        auths.include?("email")
-      end
-
-      def sms_auth_enabled?
-        auths.include?("sms")
-      end
-
+      ##
+      # Converts signer to JSON API format
+      #
+      # Returns:: Hash with signer data in JSON API specification format
+      #
+      # Raises::
+      #   ValidationError:: if signer is invalid
+      #
       def to_json_api
         raise ValidationError.new(format_error_messages, @errors) unless valid?
 
@@ -92,12 +132,26 @@ module Signetron
 
       private
 
+      ##
+      # Returns the validator contract for signer validation
+      #
+      # Returns:: Validators::SignerValidator instance
+      #
+      # :reek:UnusedPrivateMethod
       def validator
         @validator ||= Validators::SignerValidator.new
       end
 
+      ##
+      # Filters out nil values from hash
+      #
+      # Args:
+      #   hash:: Hash to filter
+      #
+      # Returns:: Hash without nil values
+      #
       def filter_nil_values(hash)
-        hash.reject { |_, value| value.nil? }
+        hash.compact
       end
     end
   end
