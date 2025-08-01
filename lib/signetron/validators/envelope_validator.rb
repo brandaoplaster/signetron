@@ -70,7 +70,7 @@ module Signetron
       #
       rule(:name) do
         if key? && value
-          key.failure("must have at least 1 character") if value.length < 1
+          key.failure("must have at least 1 character") if value.empty?
           key.failure("maximum #{MAX_NAME_LENGTH} characters") if value.length > MAX_NAME_LENGTH
         end
       end
