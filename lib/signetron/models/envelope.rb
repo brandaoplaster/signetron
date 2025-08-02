@@ -2,18 +2,22 @@
 
 module Signetron
   module Models
-    # Envelope model for document signing workflows
+    # Document envelope for signature workflows
     #
     # Represents a document envelope containing signature requests and configuration
     # for the signing process. Inherits validation and error handling from Base class.
+    # Validates envelope data before sending to Signetron API.
+    #
+    # @author Signetron Team
+    # @since 1.0.0
     #
     # @example Creating a valid envelope
     #   envelope = Envelope.new(
     #     name: "Contract Agreement",
-    #     locale: "en",
-    #     sequence_enabled: true,
+    #     locale: "pt-BR",
     #     auto_close: false
     #   )
+    #   envelope.valid? # => true
     #
     # @example Building envelope with error handling
     #   envelope = Envelope.build(name: "", locale: "invalid")
@@ -34,32 +38,42 @@ module Signetron
 
       # Returns the envelope locale
       #
+      # Language code that determines document language. Affects emails,
+      # signature pages, and signed document logs.
+      #
       # @return [String, nil] the locale code for the envelope
       #
       # @example
-      #   envelope.locale # => "en"
+      #   envelope.locale # => "pt-BR"
       #
       def locale
         @attributes[:locale]
       end
 
-      # Returns whether sequence is enabled for signing
+      # Returns the envelope status
       #
-      # @return [Boolean, nil] true if signers must sign in sequence
+      # Current lifecycle status of the envelope. Controls envelope activation
+      # and is only available during envelope updates.
+      #
+      # @return [String, nil] current status of the envelope
+      # @note Valid values: draft, running, canceled, closed
       #
       # @example
-      #   envelope.sequence_enabled # => true
+      #   envelope.status # => "draft"
       #
-      def sequence_enabled
-        @attributes[:sequence_enabled]
+      def status
+        @attributes[:status]
       end
 
       # Returns auto-close configuration
       #
+      # Determines if document will be automatically finalized after
+      # the last signatory completes their signature.
+      #
       # @return [Boolean, nil] true if envelope should auto-close after all signatures
       #
       # @example
-      #   envelope.auto_close # => false
+      #   envelope.auto_close # => true
       #
       def auto_close
         @attributes[:auto_close]
@@ -67,10 +81,13 @@ module Signetron
 
       # Returns block after refusal setting
       #
+      # Determines if the signing process should be paused when
+      # a signatory refuses to sign the document.
+      #
       # @return [Boolean, nil] true if envelope should be blocked after refusal
       #
       # @example
-      #   envelope.block_after_refusal # => true
+      #   envelope.block_after_refusal # => false
       #
       def block_after_refusal
         @attributes[:block_after_refusal]
@@ -78,7 +95,11 @@ module Signetron
 
       # Returns the envelope deadline
       #
+      # Deadline for completing document signatures. Document will be
+      # automatically finalized when deadline is reached. Maximum 90 days from upload.
+      #
       # @return [Time, String, nil] deadline for completing the envelope
+      # @note Must be greater than current date/time, maximum 90 days from upload
       #
       # @example
       #   envelope.deadline_at # => "2024-12-31T23:59:59Z"
@@ -89,7 +110,11 @@ module Signetron
 
       # Returns reminder interval configuration
       #
+      # Determines if document will have automatic reminders enabled.
+      # Up to three reminders will be sent automatically at the specified interval.
+      #
       # @return [Integer, nil] interval in days for sending reminders
+      # @note Valid values: null, 1, 2, 3, 7, 14
       #
       # @example
       #   envelope.remind_interval # => 3
@@ -100,6 +125,8 @@ module Signetron
 
       # Returns external identifier
       #
+      # External system identifier for envelope integration and tracking.
+      #
       # @return [String, nil] external system identifier for the envelope
       #
       # @example
@@ -109,20 +136,52 @@ module Signetron
         @attributes[:external_id]
       end
 
+      # Returns the default email subject
+      #
+      # Default subject line for signature request emails sent to signatories.
+      # If not provided, a default subject will be used.
+      #
+      # @return [String, nil] default subject for signature request emails
+      # @note Maximum 100 characters
+      #
+      # @example
+      #   envelope.default_subject # => "Please sign this document"
+      #
+      def default_subject
+        @attributes[:default_subject]
+      end
+
+      # Returns the default message
+      #
+      # Default message sent to signatories with signature requests.
+      # Can be overridden per signatory when triggering notifications.
+      #
+      # @return [String, nil] default message sent to signers
+      #
+      # @example
+      #   envelope.default_message # => "Please review and sign the attached document"
+      #
+      def default_message
+        @attributes[:default_message]
+      end
+
       # Converts envelope to JSON API format
+      #
+      # Validates the envelope and converts it to JSON API specification format
+      # for sending to the Signetron API. Only proceeds if validation passes.
       #
       # @return [Hash] envelope data in JSON API specification format
       # @raise [ValidationError] if envelope is invalid
       #
       # @example Valid envelope conversion
+      #   envelope = Envelope.new(name: "Contract", locale: "pt-BR")
       #   envelope.to_json_api
       #   # => {
       #   #   data: {
       #   #     type: "envelopes",
       #   #     attributes: {
-      #   #       name: "Contract Agreement",
-      #   #       locale: "en",
-      #   #       sequence_enabled: true
+      #   #       name: "Contract",
+      #   #       locale: "pt-BR"
       #   #     }
       #   #   }
       #   # }
@@ -148,10 +207,13 @@ module Signetron
       # inspection of validation errors without exception handling.
       #
       # @param attributes [Hash] envelope attributes
+      # @option attributes [String] :name envelope name (required)
+      # @option attributes [String] :locale language code (pt-BR, en-US)
+      # @option attributes [Boolean] :auto_close auto-close after signing
       # @return [Envelope] envelope instance (valid or invalid)
       #
       # @example Building valid envelope
-      #   envelope = Envelope.build(name: "Contract", locale: "en")
+      #   envelope = Envelope.build(name: "Contract", locale: "pt-BR")
       #   envelope.valid? # => true
       #
       # @example Building invalid envelope
@@ -163,7 +225,7 @@ module Signetron
         new(attributes)
       rescue ValidationError => e
         instance = allocate
-        instance.instance_variable_set(:@attributes, {})
+        instance.instance_variable_set(:@attributes, attributes)
         instance.instance_variable_set(:@errors, e.errors)
         instance
       end
@@ -172,7 +234,11 @@ module Signetron
 
       # Returns the validator contract for envelope validation
       #
+      # Lazy-loads the envelope validator instance for validating
+      # envelope attributes according to business rules.
+      #
       # @return [Validators::EnvelopeValidator] validator instance
+      # @api private
       #
       def validator
         @validator ||= Validators::EnvelopeValidator.new
@@ -180,8 +246,12 @@ module Signetron
 
       # Filters out nil values from hash
       #
+      # Removes nil values to create clean JSON API payload,
+      # ensuring only meaningful attributes are sent to the API.
+      #
       # @param hash [Hash] hash to filter
       # @return [Hash] hash without nil values
+      # @api private
       #
       def filter_nil_values(hash)
         hash.compact
