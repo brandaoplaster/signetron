@@ -10,6 +10,8 @@ gem "rake", "~> 13.0"
 gem "rest-client"
 
 group :development, :test do
+  gem "factory_bot", "~> 6.4", ">= 6.4.6"
+  gem "faker", "~> 3.3", ">= 3.3.1"
   gem "reek", "~> 6.1"
   gem "rspec"
   gem "rubocop", "~> 1.21"
