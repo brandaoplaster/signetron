@@ -107,18 +107,8 @@ module Signetron
             type: "requirements",
             attributes: filter_nil_values(@attributes.except(:document_id, :signer_id)),
             relationships: {
-              document: {
-                data: {
-                  type: "documents",
-                  id: document_id,
-                },
-              },
-              signer: {
-                data: {
-                  type: "signers",
-                  id: signer_id,
-                },
-              },
+              document: { data: { type: "documents", id: document_id } },
+              signer: { data: { type: "signers", id: signer_id } },
             },
           },
         }

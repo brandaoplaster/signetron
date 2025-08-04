@@ -101,23 +101,10 @@ module Signetron
         {
           data: {
             type: "requirements",
-            attributes: {
-              action: action,
-              auth: auth,
-            },
+            attributes: { action: action, auth: auth },
             relationships: {
-              document: {
-                data: {
-                  type: "documents",
-                  id: document_id,
-                },
-              },
-              signer: {
-                data: {
-                  type: "signers",
-                  id: signer_id,
-                },
-              },
+              document: { data: { type: "documents", id: document_id } },
+              signer: { data: { type: "signers", id: signer_id } },
             },
           },
         }
