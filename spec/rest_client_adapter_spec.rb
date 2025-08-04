@@ -1,8 +1,4 @@
-require 'rspec'
-require 'webmock/rspec'
-require 'rest-client'
-require 'singleton'
-require_relative '../lib/signetron'
+require 'spec_helper'
 
 RSpec.describe Signetron::HttpClientInterface do
   describe '#request' do
