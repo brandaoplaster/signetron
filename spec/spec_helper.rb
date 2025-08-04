@@ -1,3 +1,6 @@
+require 'factory_bot'
+require 'faker'
+
 Dir["./spec/support/**/*.rb"].each { |f| require f }
 
 require "bundler/setup"
@@ -6,6 +9,7 @@ require "signetron"
 require 'rspec'
 require 'webmock/rspec'
 require 'rest-client'
+
 require 'singleton'
 
 
