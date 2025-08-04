@@ -77,9 +77,21 @@ module Signetron
       #   "document" # => "deve ter extensão de arquivo"
       #
       rule(:filename) do
-        validate_filename_length(value)
-        validate_filename_characters(value)
-        validate_filename_extension(value)
+        if value.strip.empty?
+          key.failure("cannot be empty")
+        elsif value.length > MAX_FILENAME_LENGTH
+          key.failure("maximum #{MAX_FILENAME_LENGTH} characters")
+        elsif value.match?(%r{[<>:"|?*\\/]})
+          key.failure("contains invalid characters")
+        else
+          extension = File.extname(value).downcase.gsub(".", "")
+
+          if extension.empty?
+            key.failure("must have file extension")
+          elsif !VALID_FORMATS.include?(extension)
+            key.failure("extension must be: #{VALID_FORMATS.join(', ')}")
+          end
+        end
       end
 
       # Validates base64 content requirements
@@ -95,121 +107,34 @@ module Signetron
       #   "data:application/pdf;base64,ABC" # => "arquivo muito pequeno, mínimo 1KB"
       #
       rule(:content_base64) do
-        validate_base64_format(value)
-        validate_file_size(value)
-        validate_mime_type(value, values[:filename])
-      end
-
-      private
-
-      # Validates filename length constraints
-      #
-      # @param value [String] filename to validate
-      # @return [void]
-      #
-      # @example
-      #   validate_filename_length("") # => adds "não pode estar vazio" error
-      #   validate_filename_length("a" * 300) # => adds length limit error
-      #
-      def validate_filename_length(value)
-        key.failure("cannot be empty") if value.strip.empty?
-        key.failure("maximum #{MAX_FILENAME_LENGTH} characters") if value.length > MAX_FILENAME_LENGTH
-      end
-
-      # Validates filename contains no invalid characters
-      #
-      # @param value [String] filename to validate
-      # @return [void]
-      #
-      # @example
-      #   validate_filename_characters("file<test>.pdf") # => adds invalid characters error
-      #   validate_filename_characters("normal_file.pdf") # => no error
-      #
-      def validate_filename_characters(value)
-        return unless value.match?(%r{[<>:"|?*\\/]})
-
-        key.failure("contains invalid characters")
-      end
-
-      # Validates filename has a supported extension
-      #
-      # @param value [String] filename to validate
-      # @return [void]
-      #
-      # @example
-      #   validate_filename_extension("file.exe") # => adds unsupported extension error
-      #   validate_filename_extension("document") # => adds missing extension error
-      #   validate_filename_extension("file.pdf") # => no error
-      #
-      def validate_filename_extension(value)
-        extension = File.extname(value).downcase.gsub(".", "")
-
-        if extension.empty?
-          key.failure("must have file extension")
-        elsif !VALID_FORMATS.include?(extension)
-          key.failure("extension must be: #{VALID_FORMATS.join(', ')}")
+        # Validate base64 format
+        begin
+          decoded = Base64.strict_decode64(extract_base64_content(value))
+        rescue ArgumentError
+          key.failure("invalid Base64")
+          next
         end
-      end
 
-      # Validates base64 encoding format
-      #
-      # @param value [String] base64 string to validate
-      # @return [void]
-      #
-      # @example
-      #   validate_base64_format("invalid!") # => adds Base64 error
-      #   validate_base64_format("SGVsbG8=") # => no error
-      #
-      def validate_base64_format(value)
-        Base64.strict_decode64(extract_base64_content(value))
-      rescue ArgumentError
-        key.failure("invalid Base64")
-      end
-
-      # Validates file size is within acceptable limits
-      #
-      # @param value [String] base64 string to validate
-      # @return [void]
-      #
-      # @example
-      #   validate_file_size("QQ==") # => adds file too small error
-      #   validate_file_size(large_base64) # => adds file too large error
-      #
-      def validate_file_size(value)
-        decoded = Base64.strict_decode64(extract_base64_content(value))
-
+        # Validate file size
         if decoded.size < MIN_FILE_SIZE
           key.failure("file too small, minimum #{MIN_FILE_SIZE / 1024}KB")
         elsif decoded.size > MAX_FILE_SIZE
           key.failure("file too large, maximum #{MAX_FILE_SIZE / (1024 * 1024)}MB")
         end
-      rescue ArgumentError
-        # Error already handled in validate_base64_format
+
+        # Validate MIME type if filename is present
+        if values[:filename]
+          mime_type = extract_mime_type(value)
+          if mime_type
+            expected_extension = File.extname(values[:filename]).downcase.gsub(".", "")
+            expected_mime = VALID_MIME_TYPES[expected_extension]
+
+            key.failure("MIME type does not match extension") if expected_mime && mime_type != expected_mime
+          end
+        end
       end
 
-      # Validates MIME type matches file extension
-      #
-      # @param value [String] base64 string with optional data URI
-      # @param filename [String] filename with extension
-      # @return [void]
-      #
-      # @example
-      #   validate_mime_type("data:image/png;base64,ABC", "file.pdf") # => adds MIME type error
-      #   validate_mime_type("data:application/pdf;base64,ABC", "file.pdf") # => no error
-      #
-      def validate_mime_type(value, filename)
-        return unless filename
-
-        mime_type = extract_mime_type(value)
-        return unless mime_type
-
-        expected_extension = File.extname(filename).downcase.gsub(".", "")
-        expected_mime = VALID_MIME_TYPES[expected_extension]
-
-        return unless expected_mime && mime_type != expected_mime
-
-        key.failure("MIME type does not match extension")
-      end
+      private
 
       # Extracts base64 content from data URI or returns as-is
       #
