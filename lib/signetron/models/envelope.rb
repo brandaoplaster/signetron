@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "date"
+
 module Signetron
   module Models
     # Document envelope for signature workflows
@@ -25,6 +27,10 @@ module Signetron
     #   envelope.errors_hash # => { name: ["can't be blank"], locale: ["is invalid"] }
     #
     class Envelope < Base
+      def initialize(attributes = {})
+        super(apply_defaults(attributes))
+      end
+
       # Returns the envelope name
       #
       # @return [String, nil] the name of the envelope
@@ -231,6 +237,18 @@ module Signetron
       end
 
       private
+
+      def apply_defaults(attributes)
+        defaults = {
+          locale: "pt-BR",
+          auto_close: true,
+          block_after_refusal: false,
+          remind_interval: 3,
+          deadline_at: Date.today + 30,
+          default_message: "",
+        }
+        attributes.reverse_merge!(defaults)
+      end
 
       # Returns the validator contract for envelope validation
       #

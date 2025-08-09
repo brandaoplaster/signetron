@@ -1,65 +1,56 @@
 # frozen_string_literal: true
 
 require "dry-validation"
+require_relative "constants/signer_constants"
+require_relative "communicate_events_validator"
+require_relative "helpers/signer_helpers"
 
 module Signetron
   module Validators
-    ##
-    # Signer validation contract for participant data
+    # Signer validation contract for signature participants
     #
-    # Validates signer information based on API requirements including
-    # personal details, contact information, and communication settings.
-    # Ensures all signers meet business requirements for document signing.
+    # Validates signer registration and update parameters including personal
+    # information, contact details, documentation requirements, and communication
+    # preferences. Ensures all signer data meets business rules and legal requirements.
     #
-    # Example valid signer data:
+    # @example Valid signer data
     #   validator = SignerValidator.new
     #   result = validator.call(
-    #     name: "John Doe",
-    #     email: "john@example.com",
-    #     phone_number: "+1234567890",
+    #     name: "João Silva Santos",
+    #     email: "joao@example.com",
+    #     phone_number: "+55 11 99999-9999",
     #     has_documentation: true,
     #     documentation: "123.456.789-00",
     #     birthday: Date.new(1990, 5, 15),
-    #     refusable: true,
-    #     group: 1,
-    #     location_required_enabled: false,
     #     communicate_events: {
-    #       signature_request: "email",
-    #       signature_reminder: "email",
-    #       document_signed: "email"
+    #       "signature_request" => "email",
+    #       "signature_reminder" => "email",
+    #       "document_signed" => "email"
     #     }
     #   )
     #   result.success? # => true
     #
+    # @example Invalid signer data
+    #   result = validator.call(
+    #     name: "João123", # contains numbers
+    #     email: "invalid-email",
+    #     phone_number: "123",
+    #     documentation: "invalid-cpf",
+    #     birthday: Date.today - 10.years, # too young
+    #     has_documentation: false,
+    #     documentation: "123.456.789-00" # conflict with has_documentation
+    #   )
+    #   result.success? # => false
+    #   result.errors.to_h # => detailed validation errors
+    #
     class SignerValidator < Dry::Validation::Contract
-      # Valid communication methods for events
-      VALID_COMMUNICATION_METHODS = %w[email sms whatsapp none].freeze
+      include Signetron::Validators::Helpers::SignerHelpers
+      SignerConstants = Signetron::Validators::Constants::SignerConstants
 
-      # Valid signature request methods
-      VALID_SIGNATURE_REQUEST = %w[email sms whatsapp none].freeze
-
-      # Valid signature reminder methods
-      VALID_SIGNATURE_REMINDER = %w[none email].freeze
-
-      # Valid document signed notification methods
-      VALID_DOCUMENT_SIGNED = %w[email whatsapp].freeze
-
-      # Maximum name length in characters
-      MAX_NAME_LENGTH = 255
-
-      # Maximum email length in characters
-      MAX_EMAIL_LENGTH = 255
-
-      # Email format validation regex
-      EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i
-
-      # Phone number format validation regex (10-15 digits with optional formatting)
-      PHONE_REGEX = /\A[\d\s\-\(\)\+]{10,15}\z/
-
-      # Brazilian CPF documentation format regex
-      DOCUMENTATION_REGEX = /\A\d{3}\.\d{3}\.\d{3}-\d{2}\z/
-
-      # Parameter schema definition based on API documentation
+      # Parameter schema definition
+      #
+      # Defines required and optional parameters with their types.
+      # Only name is required, all other fields are optional for flexibility.
       params do
         required(:name).filled(:string)
         optional(:email).maybe(:string)
@@ -73,55 +64,58 @@ module Signetron
         optional(:communicate_events).maybe(:hash)
       end
 
-      # Validates name format and length requirements
+      # Validates signer name requirements
       #
-      # Must contain at least first name and last name.
-      # Cannot contain numbers.
+      # Ensures name meets length, format and content requirements.
+      # Name must contain first and last name without numbers.
       rule(:name) do
-        validate_name_length(value)
-        validate_name_format(value)
-        validate_name_no_numbers(value)
+        validate_name_length(key, value)
+        validate_name_format(key, value)
+        validate_name_no_numbers(key, value)
       end
 
-      # Validates email format and length when provided
+      # Validates email address when provided
       #
-      # Required only if communicate_events contains "email" values.
+      # Checks email format and length when email is present.
       rule(:email) do
         if value
-          validate_email_format(value)
-          validate_email_length(value)
+          validate_email_format(key, value)
+          validate_email_length(key, value)
         end
       end
 
       # Validates phone number format when provided
       #
-      # Required only if communicate_events contains "sms" or "whatsapp" values.
+      # Ensures phone number matches valid pattern when present.
       rule(:phone_number) do
-        validate_phone_format(value) if value
+        validate_phone_format(key, value) if value
       end
 
-      # Validates documentation format when provided
+      # Validates CPF documentation format when provided
       #
-      # Can only be sent if has_documentation is true.
+      # Ensures CPF follows Brazilian format xxx.xxx.xxx-xx when present.
       rule(:documentation) do
-        validate_documentation_format(value) if value
+        validate_documentation_format(key, value) if value
       end
 
-      # Validates birthday for age requirements when provided
+      # Validates signer age based on birth date
       #
-      # Can only be sent if has_documentation is true.
+      # Ensures signer is of legal age when birthday is provided.
       rule(:birthday) do
-        validate_birthday_age(value) if value
+        validate_birthday_age(key, value) if value
       end
 
-      # Validates group number is positive when provided
-      rule(:group) do
-        key.failure("must be a positive integer") if value && value < 1
-      end
-
-      # Validates communicate_events when provided
+      # Validates group number is positive
       #
-      # Delegates validation to dedicated CommunicateEventsValidator
+      # Ensures group value is a positive integer when provided.
+      rule(:group) do
+        validate_positive_integer(key, value)
+      end
+
+      # Validates communication events configuration
+      #
+      # Delegates to CommunicateEventsValidator for detailed validation
+      # of communication preferences structure and values.
       rule(:communicate_events) do
         if value
           events_result = Validators::CommunicateEventsValidator.new.call(value)
@@ -133,118 +127,40 @@ module Signetron
         end
       end
 
-      # Validates has_documentation dependencies
+      # Validates documentation dependency rules
       #
-      # If has_documentation is false, documentation and birthday cannot be sent.
+      # Ensures documentation and birthday are not provided when
+      # has_documentation is explicitly set to false.
       rule(:has_documentation, :documentation, :birthday) do
         if values[:has_documentation] == false
-          key(:documentation).failure("cannot be sent when has_documentation is false") if values[:documentation]
-          key(:birthday).failure("cannot be sent when has_documentation is false") if values[:birthday]
+          key(:documentation).failure(SignerConstants::DOCUMENTATION_DEPENDENCY_MESSAGE) if values[:documentation]
+          key(:birthday).failure(SignerConstants::DOCUMENTATION_DEPENDENCY_MESSAGE) if values[:birthday]
         end
       end
 
-      # Validates email requirement based on communicate_events
+      # Validates email requirement based on communication events
+      #
+      # Ensures email is provided when communication events require email notifications.
       rule(:email, :communicate_events) do
         if values[:communicate_events]
           events_validator = Validators::CommunicateEventsValidator.new
           events_result = events_validator.call(values[:communicate_events])
-
-          if events_result.success?
-            events = values[:communicate_events]
-            needs_email = events.values.include?("email")
-
-            if needs_email && !values[:email]
-              key(:email).failure("is required when communicate_events contains 'email'")
-            end
+          if events_result.success? && needs_email?(values[:communicate_events]) && !values[:email]
+            key(:email).failure(SignerConstants::EMAIL_REQUIRED_MESSAGE)
           end
         end
       end
 
-      # Validates phone requirement based on communicate_events
+      # Validates phone requirement based on communication events
+      #
+      # Ensures phone number is provided when communication events require SMS or WhatsApp.
       rule(:phone_number, :communicate_events) do
         if values[:communicate_events]
           events_validator = Validators::CommunicateEventsValidator.new
           events_result = events_validator.call(values[:communicate_events])
-
-          if events_result.success?
-            events = values[:communicate_events]
-            needs_phone = events.values.any? { |v| %w[sms whatsapp].include?(v) }
-
-            if needs_phone && !values[:phone_number]
-              key(:phone_number).failure("is required when communicate_events contains 'sms' or 'whatsapp'")
-            end
+          if events_result.success? && needs_phone?(values[:communicate_events]) && !values[:phone_number]
+            key(:phone_number).failure(SignerConstants::PHONE_REQUIRED_MESSAGE)
           end
-        end
-      end
-
-      private
-
-      ##
-      # Validates name length and emptiness
-      def validate_name_length(value)
-        key.failure("cannot be empty") if value.strip.empty?
-        key.failure("maximum #{MAX_NAME_LENGTH} characters") if value.length > MAX_NAME_LENGTH
-      end
-
-      ##
-      # Validates name contains both first and last name
-      def validate_name_format(value)
-        return unless value.strip.split.length < 2
-
-        key.failure("must contain first and last name")
-      end
-
-      ##
-      # Validates name does not contain numbers
-      def validate_name_no_numbers(value)
-        return unless value.match?(/\d/)
-
-        key.failure("cannot contain numbers")
-      end
-
-      ##
-      # Validates email format using regex
-      def validate_email_format(value)
-        return if value.match?(EMAIL_REGEX)
-
-        key.failure("invalid email format")
-      end
-
-      ##
-      # Validates email length constraint
-      def validate_email_length(value)
-        return unless value.length > MAX_EMAIL_LENGTH
-
-        key.failure("maximum #{MAX_EMAIL_LENGTH} characters")
-      end
-
-      ##
-      # Validates phone number format using regex
-      def validate_phone_format(value)
-        return if value.match?(PHONE_REGEX)
-
-        key.failure("invalid phone format")
-      end
-
-      ##
-      # Validates Brazilian CPF documentation format
-      def validate_documentation_format(value)
-        return if value.match?(DOCUMENTATION_REGEX)
-
-        key.failure("CPF must be in format xxx.xxx.xxx-xx")
-      end
-
-      ##
-      # Validates age requirements based on birthday
-      def validate_birthday_age(value)
-        today = Date.today
-        age = today.year - value.year
-        age -= 1 if today < value.next_year(age)
-
-        if age < 18
-          key.failure("signer must be of legal age")
-        elsif age > 120
-          key.failure("invalid birth date")
         end
       end
     end
