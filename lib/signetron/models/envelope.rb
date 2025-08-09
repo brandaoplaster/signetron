@@ -239,13 +239,15 @@ module Signetron
       private
 
       def apply_defaults(attributes)
-        attributes[:locale] = "pt-BR" unless attributes.key?(:locale)
-        attributes[:auto_close] = true unless attributes.key?(:auto_close)
-        attributes[:remind_interval] = 3 unless attributes.key?(:remind_interval)
-        attributes[:block_after_refusal] = false unless attributes.key?(:block_after_refusal)
-        attributes[:deadline_at] = Date.now + 30 unless attributes.key?(:deadline_at)
-        attributes[:default_message] = "" unless attributes.key?(:default_message)
-        attributes
+        defaults = {
+          locale: "pt-BR",
+          auto_close: true,
+          block_after_refusal: false,
+          remind_interval: 3,
+          deadline_at: Date.today + 30,
+          default_message: "",
+        }
+        attributes.reverse_merge!(defaults)
       end
 
       # Returns the validator contract for envelope validation
