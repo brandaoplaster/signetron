@@ -1,52 +1,55 @@
 # frozen_string_literal: true
 
 require "dry-validation"
+require_relative "helpers/requirement_helpers"
 
 module Signetron
   module Validators
-    # Requirement validation contract for signing requirements
+    # Requirement validation contract for signer evidence requirements
     #
-    # Validates requirement data that links signers to documents with specific
-    # actions and authentication methods. Ensures proper UUID format for
-    # entity references and validates allowed actions and auth methods.
+    # Validates requirement assignments between signers and documents including
+    # action types, authentication methods, and UUID references. Ensures all
+    # requirement data meets format requirements for evidence collection.
     #
-    # @example Valid requirement data
+    # @example Valid requirement data with email auth
     #   validator = RequirementValidator.new
     #   result = validator.call(
     #     action: "provide_evidence",
     #     auth: "email",
     #     document_id: "550e8400-e29b-41d4-a716-446655440000",
-    #     signer_id: "123e4567-e89b-12d3-a456-426614174000"
+    #     signer_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    #   )
+    #   result.success? # => true
+    #
+    # @example Valid requirement data with SMS auth
+    #   result = validator.call(
+    #     action: "provide_evidence",
+    #     auth: "sms",
+    #     document_id: "550e8400-e29b-41d4-a716-446655440000",
+    #     signer_id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     #   )
     #   result.success? # => true
     #
     # @example Invalid requirement data
     #   result = validator.call(
     #     action: "invalid_action",
-    #     auth: "invalid_auth",
-    #     document_id: "not-a-uuid",
-    #     signer_id: "also-not-uuid"
+    #     auth: "whatsapp",
+    #     document_id: "invalid-uuid",
+    #     signer_id: "also-invalid"
     #   )
     #   result.success? # => false
     #   result.errors.to_h # => { action: ["must be 'provide_evidence'"],
-    #                      #      auth: ["must be 'email', 'sms', 'selfie' or 'pix'"],
+    #                      #      auth: ["must be 'email', 'sms'"],
     #                      #      document_id: ["must be a valid UUID"],
     #                      #      signer_id: ["must be a valid UUID"] }
     #
     class RequirementValidator < Dry::Validation::Contract
-      # Valid requirement actions supported by the system
-      VALID_ACTIONS = %w[provide_evidence].freeze
-
-      # Valid authentication methods for requirements
-      VALID_AUTHS = %w[email sms].freeze
-
-      # UUID format validation regex (RFC 4122 compliant)
-      UUID_REGEX = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+      include Signetron::Validators::Helpers::RequirementValidationHelpers
 
       # Parameter schema definition
       #
-      # All parameters are required and must be non-empty strings.
-      # References to documents and signers must be valid UUIDs.
+      # All parameters are required for requirement assignments.
+      # Ensures complete requirement data is provided.
       params do
         required(:action).filled(:string)
         required(:auth).filled(:string)
@@ -54,85 +57,32 @@ module Signetron
         required(:signer_id).filled(:string)
       end
 
-      # Validates requirement action is supported
+      # Validates requirement action
       #
-      # @example Valid actions
-      #   "provide_evidence" # => valid
-      #
-      # @example Invalid actions
-      #   "sign" # => "must be 'provide_evidence'"
-      #   "approve" # => "must be 'provide_evidence'"
-      #   "" # => "must be 'provide_evidence'"
-      #
+      # Ensures action is the allowed value: 'provide_evidence'.
       rule(:action) do
-        key.failure("must be 'provide_evidence'") unless VALID_ACTIONS.include?(value)
+        validate_action(key, value)
       end
 
-      # Validates authentication method is supported
+      # Validates authentication method
       #
-      # Note: Error message mentions 'selfie' and 'pix' but they are not
-      # included in VALID_AUTHS constant. This may be intentional for
-      # future compatibility or an oversight.
-      #
-      # @example Valid auth methods
-      #   "email" # => valid
-      #   "sms" # => valid
-      #
-      # @example Invalid auth methods
-      #   "selfie" # => "must be 'email', 'sms', 'selfie' or 'pix'"
-      #   "biometric" # => "must be 'email', 'sms', 'selfie' or 'pix'"
-      #
+      # Ensures auth method is one of the allowed values: 'email' or 'sms'.
       rule(:auth) do
-        key.failure("must be 'email', 'sms'") unless VALID_AUTHS.include?(value)
+        validate_auth(key, value)
       end
 
-      # Validates document ID is a properly formatted UUID
+      # Validates document UUID reference
       #
-      # @example Valid document IDs
-      #   "550e8400-e29b-41d4-a716-446655440000" # => valid
-      #   "123e4567-e89b-12d3-a456-426614174000" # => valid
-      #
-      # @example Invalid document IDs
-      #   "not-a-uuid" # => "must be a valid UUID"
-      #   "12345" # => "must be a valid UUID"
-      #   "550e8400-e29b-41d4-a716" # => "must be a valid UUID"
-      #
+      # Ensures document_id follows valid UUID format.
       rule(:document_id) do
-        key.failure("must be a valid UUID") unless uuid_format?(value)
+        validate_uuid_format(key, value)
       end
 
-      # Validates signer ID is a properly formatted UUID
+      # Validates signer UUID reference
       #
-      # @example Valid signer IDs
-      #   "123e4567-e89b-12d3-a456-426614174000" # => valid
-      #   "550e8400-e29b-41d4-a716-446655440000" # => valid
-      #
-      # @example Invalid signer IDs
-      #   "invalid-id" # => "must be a valid UUID"
-      #   "12345678-1234-1234-1234" # => "must be a valid UUID"
-      #   "" # => "must be a valid UUID"
-      #
+      # Ensures signer_id follows valid UUID format.
       rule(:signer_id) do
-        key.failure("must be a valid UUID") unless uuid_format?(value)
-      end
-
-      private
-
-      # Checks if value matches UUID format
-      #
-      # Uses RFC 4122 compliant regex to validate UUID format.
-      # Case-insensitive matching allows both uppercase and lowercase.
-      #
-      # @param value [String] string to validate as UUID
-      # @return [Boolean] true if value matches UUID format
-      #
-      # @example
-      #   uuid_format?("550e8400-e29b-41d4-a716-446655440000") # => true
-      #   uuid_format?("ABCD1234-5678-90EF-GHIJ-KLMNOPQRSTUV") # => false
-      #   uuid_format?("not-a-uuid") # => false
-      #
-      def uuid_format?(value)
-        value.match?(UUID_REGEX)
+        validate_uuid_format(key, value)
       end
     end
   end
