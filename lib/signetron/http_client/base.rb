@@ -14,17 +14,17 @@ module Signetron
   #   response = Signetron::Base.request(:get, '/users')
   class Base
     class << self
-      # Sets the HTTP client to be used for requests
+      # Sets the HTTP client adapter to be used for requests
       #
-      # @param client [HttpClientInterface] the HTTP client instance
-      # @return [HttpClientInterface] the assigned HTTP client
+      # @param adapter [HttpClientInterface] the HTTP client adapter instance
+      # @return [HttpClientInterface] the assigned HTTP client adapter
       attr_writer :http_client
 
-      # Gets the current HTTP client instance
+      # Gets the current HTTP client adapter instance
       #
-      # @return [HttpClientInterface] the HTTP client (defaults to RestClientAdapter)
+      # @return [HttpClientInterface] the HTTP client adapter (defaults to RestClientAdapter)
       def http_client
-        @http_client ||= RestClientAdapter.instance
+        @http_client ||= Signetron::HttpClient::RestClientAdapter.instance
       end
 
       # Executes an HTTP request with automatic configuration validation
@@ -44,6 +44,8 @@ module Signetron
       #   response = Signetron::Base.request(:post, '/users', { name: 'John' })
       def request(method, url, payload = {})
         ensure_configured!
+
+        # Use the adapter's request method instead of calling RestClient directly
         response = http_client.request(method, url, payload, add_headers)
         parse(response)
       end
@@ -67,14 +69,42 @@ module Signetron
         ([base_url, api_version] + path).join("/")
       end
 
-      # Parses the HTTP response
+      # Parses the HTTP response from the adapter
       #
-      # @param response [Object] the raw HTTP response
+      # @param response [RestClient::Response, Object] the raw HTTP response from adapter
       #
       # @return [Hash, Object] the parsed response data (empty hash if response is empty)
       def parse(response)
-        response = {} if response.empty?
+        # Handle different response types depending on the adapter
+        case response
+        when RestClient::Response
+          response.body.empty? ? {} : JSON.parse(response.body)
+        else
+          response.empty? ? {} : response
+        end
+      rescue JSON::ParserError
+        # If JSON parsing fails, return the raw response
         response
+      end
+
+      # Sets a custom HTTP client adapter (useful for testing or different HTTP libraries)
+      #
+      # @param adapter_class [Class] the adapter class that implements HttpClientInterface
+      #
+      # @example Setting a custom adapter
+      #   Signetron::Base.set_adapter(MyCustomAdapter)
+      #
+      # @example Setting adapter for testing
+      #   Signetron::Base.set_adapter(MockHttpAdapter)
+      def set_adapter(adapter_class)
+        @http_client = adapter_class.instance
+      end
+
+      # Resets the HTTP client to default (RestClientAdapter)
+      #
+      # @return [void]
+      def reset_adapter!
+        @http_client = nil
       end
 
       private
