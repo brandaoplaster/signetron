@@ -92,11 +92,11 @@ module Signetron
       # @param adapter_class [Class] the adapter class that implements HttpClientInterface
       #
       # @example Setting a custom adapter
-      #   Signetron::Base.set_adapter(MyCustomAdapter)
+      #   Signetron::Base.adapter(MyCustomAdapter)
       #
       # @example Setting adapter for testing
-      #   Signetron::Base.set_adapter(MockHttpAdapter)
-      def set_adapter(adapter_class)
+      #   Signetron::Base.adapter(MockHttpAdapter)
+      def adapter(adapter_class)
         @http_client = adapter_class.instance
       end
 
