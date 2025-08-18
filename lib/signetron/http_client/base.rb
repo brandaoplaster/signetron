@@ -48,6 +48,10 @@ module Signetron
         # Use the adapter's request method instead of calling RestClient directly
         response = http_client.request(method, url, payload, add_headers)
         parse(response)
+      rescue Signetron::HttpClient::ErrorHandling => e
+        raise e
+      rescue StandardError => e
+        raise Signetron::HttpClient::ErrorHandling.new(0, e.message)
       end
 
       # Builds a complete API URL from path segments
