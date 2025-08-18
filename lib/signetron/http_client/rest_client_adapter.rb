@@ -39,6 +39,12 @@ module Signetron
         payload: payload,
         headers: headers
       )
+    rescue RestClient::HttpClient::ExceptionWithResponse => e
+      raise Signetron::HttpClient::ErrorHandling.new(e.http_code, e.response)
+    rescue RestClient::HttpClient::RequestTimeout => e
+      raise Signetron::HttpClient::ErrorHandling.new(408, "Request timeout: #{e.message}")
+    rescue RestClient::HttpClient::Exception => e
+      raise Signetron::HttpClient::ErrorHandling.new(0, "Connection error: #{e.message}")
     end
   end
 end
